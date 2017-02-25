@@ -1,0 +1,5 @@
+.idea
+.idea/*
+aws-tester.iml
+target
+target/*

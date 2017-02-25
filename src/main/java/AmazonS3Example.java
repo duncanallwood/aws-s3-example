@@ -1,5 +1,6 @@
 import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 
@@ -12,6 +13,7 @@ import com.amazonaws.services.s3.model.CannedAccessControlList;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
+import org.apache.commons.io.FileUtils;
 
 public class AmazonS3Example {
 
@@ -21,14 +23,14 @@ public class AmazonS3Example {
     private static final String fileName = "test30MbFile";
     private static final String localFileLocation = "C:\\data\\RoyalsWin.zip";
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
         // credentials object identifying user for authentication
         // user must have AWSConnector and AmazonS3FullAccess for
         // this example to work
         AWSCredentials credentials = new ProfileCredentialsProvider("dna").getCredentials();
 
         // create a client connection based on credentials
-        AmazonS3 s3client = new AmazonS3Client(credentials);
+        AmazonS3Client s3client = new AmazonS3Client(credentials);
 
         // create bucket - name must be unique for all S3 users
         List<Bucket> buckets = s3client.listBuckets();
@@ -43,7 +45,6 @@ public class AmazonS3Example {
         // list buckets
         for (Bucket bucket : s3client.listBuckets()) {
             System.out.println(" - " + bucket.getName());
-
         }
 
         // create folder into bucket
@@ -52,19 +53,39 @@ public class AmazonS3Example {
 
         // upload file to folder and set it to public
         String s3FileName = folderName + SUFFIX + fileName;
-        long startTime = System.currentTimeMillis();
-        s3client.putObject(new PutObjectRequest(bucketName, s3FileName,
-                new File(localFileLocation))
-                .withCannedAcl(CannedAccessControlList.PublicRead));
-        long endTime = System.currentTimeMillis();
 
-        long timeElapsedMillis = endTime - startTime;
-        System.out.println("File Transfer took " + timeElapsedMillis + "ms");
+        System.out.println("Beginning file transfers (rough guide, 1s per Mb)...");
+
+        String timeElapsedMillis1 = saveOne(s3client, s3FileName + "1");
+        System.out.println("File Transfer (method 1) took " + timeElapsedMillis1 + "ms");
+
+        String timeElapsedMillis2 = saveTwo(s3client, s3FileName + "2");
+        System.out.println("File Transfer (method 2) took " + timeElapsedMillis2 + "ms");
 
 //        deleteFolder(bucketName, folderName, s3client);
 
         // deletes bucket
 //        s3client.deleteBucket(bucketName);
+    }
+
+    public static String saveOne(AmazonS3Client s3Client, String s3FileName) {
+        long startTime = System.currentTimeMillis();
+        s3Client.putObject(new PutObjectRequest(bucketName, s3FileName,
+                new File(localFileLocation)));
+        long endTime = System.currentTimeMillis();
+
+        return "" + (endTime - startTime);
+    }
+
+    public static String saveTwo(AmazonS3Client s3Client, String s3FileName) throws IOException {
+        //keep the conversion outside the timing section
+        byte[] bytes = FileUtils.readFileToByteArray(new File(localFileLocation));
+
+        long startTime = System.currentTimeMillis();
+        s3Client.putObject(new PutObjectRequest(bucketName, s3FileName, new ByteArrayInputStream(bytes), new ObjectMetadata()));
+        long endTime = System.currentTimeMillis();
+
+        return "" + (endTime - startTime);
     }
 
     public static void createFolder(String bucketName, String folderName, AmazonS3 client) {
